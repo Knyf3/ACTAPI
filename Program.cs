@@ -1,3 +1,4 @@
+using ACTProAPI.Services;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
@@ -29,13 +30,17 @@ namespace ACTProAPI
             });
 
             // Add services to the container.
+            builder.Services.AddSingleton<Helpers.SettingsHelper>();
+            builder.Services.AddScoped<IACTProServices, ACTProServices>();
+
+
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
             {
                 options.SwaggerDoc("v1", new OpenApiInfo()
                 {
-                    Title = "RVMS Service",
+                    Title = "ACT API Service",
                     Version = "v1"
                 });
             });
