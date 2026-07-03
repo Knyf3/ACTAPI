@@ -1,7 +1,27 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Knyf3/ACTAPI/main/Settings/Settings.schema.json",
   "Server": "http://localhost:8021",
   "ACTServer": "192.168.2.121:8004",
   "ACTUsername": "fenky",
   "ACTPassword": "passwordsucks",
-  "AppName": "RVMS_ACT_Plugin"
+  "AppName": "RVMS_ACT_Plugin",
+  "SwaggerEnabled": true,
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "System.ServiceModel": "Warning",
+      "ACTApi": "Information"
+    }
+  },
+  "Serilog": {
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft": "Warning",
+        "Microsoft.AspNetCore": "Warning",
+        "System.ServiceModel": "Warning"
+      }
+    }
+  }
 }

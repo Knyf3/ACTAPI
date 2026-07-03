@@ -11,7 +11,10 @@ namespace ACTApi
     {
         public static void Main(string[] args)
         {
-            // ── Bootstrap Logger (catches startup errors) ──────────────
+            // ── Load Settings (single source of truth: Settings/Settings.json) ──
+            var settings = new Helpers.SettingsHelper();
+
+            // ── Bootstrap Logger ────────────────────────────────────────
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Information()
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
@@ -31,42 +34,29 @@ namespace ACTApi
 
             try
             {
-                // ── Load Runtime Settings ──────────────────────────────
-                var settings = new Helpers.SettingsHelper();
-
                 Log.Information("ACT API Bridge starting up...");
-                Log.Information("ACT Server target: {ActServer}, App: {AppName}",
+                Log.Information("Settings file: {SettingsPath}", settings.sharedSettingsPath);
+                Log.Information("ACT Server: {ActServer}, App: {AppName}",
                     settings.actServer, settings.appName);
                 Log.Information("HTTP endpoint: {HttpUrl}", settings.serverAddress);
-                Log.Information("Runtime: {IsService}, BaseDir: {BaseDir}",
-                    OperatingSystem.IsWindows(), AppDomain.CurrentDomain.BaseDirectory);
 
                 var builder = WebApplication.CreateBuilder(args);
 
-                // Load appsettings.json if it exists (optional — defaults used otherwise)
-                var appSettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
-                if (File.Exists(appSettingsPath))
-                {
-                    builder.Configuration.AddJsonFile(appSettingsPath, optional: true, reloadOnChange: true);
-                }
-
-                // Load ACT-specific settings
+                // ── Single Configuration Source: Settings.json ─────────────
+                // This file includes Server, ACTServer, credentials, SwaggerEnabled,
+                // Logging levels, and Serilog config — everything in one place.
                 builder.Configuration.AddJsonFile(settings.sharedSettingsPath,
                     optional: false, reloadOnChange: true);
 
-                // ── Windows Service Hosting (safe during dev; only activates when installed) ─
+                // ── Windows Service Hosting ─────────────────────────────
                 if (OperatingSystem.IsWindows())
                 {
                     builder.Host.UseWindowsService();
                 }
-                else
-                {
-                    Log.Information("Not running on Windows — skipping Windows Service registration");
-                }
 
                 builder.WebHost.UseUrls(settings.serverAddress);
 
-                // ── Serilog for the application pipeline ─────────────────
+                // ── Serilog ─────────────────────────────────────────────
                 builder.Host.UseSerilog((context, services, configuration) =>
                 {
                     configuration
@@ -103,10 +93,8 @@ namespace ACTApi
                 builder.Services.AddControllers();
                 builder.Services.AddEndpointsApiExplorer();
 
-                // ── Swagger (read from config; default on for admin API) ──
-                var swaggerEnabled = builder.Configuration
-                    .GetValue<bool>("SwaggerEnabled", true);
-                if (swaggerEnabled)
+                // ── Swagger (from Settings.json: SwaggerEnabled) ────────
+                if (settings.swaggerEnabled)
                 {
                     builder.Services.AddSwaggerGen(options =>
                     {
@@ -124,7 +112,6 @@ namespace ACTApi
                             }
                         });
 
-                        // Include XML comments if XML doc file is generated
                         var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
                         var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                         if (File.Exists(xmlPath))
@@ -140,7 +127,7 @@ namespace ACTApi
                 app.UseMiddleware<ExceptionHandlingMiddleware>();
                 app.UseMiddleware<RequestLoggingMiddleware>();
 
-                if (swaggerEnabled)
+                if (settings.swaggerEnabled)
                 {
                     app.UseSwagger();
                     app.UseSwaggerUI(options =>
