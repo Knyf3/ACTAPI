@@ -1,6 +1,0 @@
-@ACTApi_HostAddress = http://localhost:5101
-
-GET {{ACTApi_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

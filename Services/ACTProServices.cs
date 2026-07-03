@@ -1,5 +1,6 @@
 ﻿using ACTServiceReference;
 using ACTApi.Helpers;
+using ACTApi.Infrastructure;
 using System.ServiceModel;
 
 namespace ACTApi.Services
@@ -9,16 +10,27 @@ namespace ACTApi.Services
         private readonly ILogger<ACTProServices> _logger;
         private readonly SettingsHelper _settings;
 
-        public string actServer;
-        public string actUsername;
-        public string actPassword;
-        public string appName;
-        public ActEnterprisePublicAPI_ExtClient proxy = null;
+        private string actServer;
+        private string actUsername;
+        private string actPassword;
+        private string appName;
+        private ActEnterprisePublicAPI_ExtClient? proxy;
 
+        /// <summary>Gets the ACT server address.</summary>
+        public string ActServer => actServer;
+
+        /// <summary>Gets the application name registered with ACT.</summary>
+        public string AppName => appName;
+
+        /// <summary>Gets the current WCF proxy instance, or null if not connected.</summary>
+        public ActEnterprisePublicAPI_ExtClient? CurrentProxy => proxy;
+
+        /// <summary>True when the WCF proxy has an open session.</summary>
+        public bool IsConnected =>
+            proxy is not null && proxy.State == CommunicationState.Opened;
 
         public ACTProServices(ILogger<ACTProServices> logger, SettingsHelper settings)
         {
-                
             _logger = logger;
             _settings = settings;
 
@@ -31,112 +43,143 @@ namespace ACTApi.Services
 
         public async Task CreateProxy()
         {
-            NetTcpBinding binding = new NetTcpBinding(SecurityMode.Transport) 
+            NetTcpBinding binding = new NetTcpBinding(SecurityMode.Transport)
             {
                 SendTimeout = TimeSpan.FromSeconds(10),
                 ReceiveTimeout = TimeSpan.FromSeconds(10),
                 OpenTimeout = TimeSpan.FromSeconds(10),
-                CloseTimeout = TimeSpan.FromSeconds(10)
+                CloseTimeout = TimeSpan.FromSeconds(10),
+                MaxReceivedMessageSize = int.MaxValue,
+                MaxBufferSize = int.MaxValue,
+                ReaderQuotas = new System.Xml.XmlDictionaryReaderQuotas
+                {
+                    MaxArrayLength = int.MaxValue,
+                    MaxStringContentLength = int.MaxValue,
+                    MaxBytesPerRead = int.MaxValue,
+                    MaxDepth = int.MaxValue,
+                    MaxNameTableCharCount = int.MaxValue
+                }
             };
 
             //binding.Security.Transport.ClientCredentialType = TcpClientCredentialType.None;
 
-            EndpointAddress endpointAddress = new EndpointAddress($"net.tcp://{actServer}/ActEnterprisePublicUintAPI");
+            EndpointAddress endpointAddress =
+                new EndpointAddress(
+                    $"net.tcp://{actServer}/ActEnterprisePublicUintAPI");
 
             try
             {
                 proxy = new ActEnterprisePublicAPI_ExtClient(binding, endpointAddress);
-                uint status = await proxy.EstablishPublicSessionAsync(actUsername,actPassword , appName, System.Environment.MachineName, "RVMS"); 
-                
+
+                uint status = await WcfCallLogger.ExecuteAsync(
+                    () => proxy.EstablishPublicSessionAsync(
+                        actUsername, actPassword, appName,
+                        System.Environment.MachineName, "RVMS"),
+                    "EstablishPublicSession",
+                    _logger);
 
                 if (status == 0)
                 {
-                    _logger.LogError("Failed to establish session");
-                    throw new InvalidOperationException("ACT session returned status 0.");
+                    _logger.LogError(
+                        "Failed to establish ACT session — server returned status 0");
+                    throw new InvalidOperationException(
+                        "ACT session returned status 0.");
                 }
-                else
-                {
-                    _logger.LogInformation("Session established successfully");
-                  
-                }
-            }
-            catch (CommunicationException ex)
-            {
-                proxy?.Abort();
-                _logger.LogError($"Communication error: {ex.Message}");
-                throw;
-            }
-            catch (TimeoutException ex)
-            {
 
-                proxy?.Abort();
-                _logger.LogError($"Timeout: {ex.Message}");
-                throw;
+                _logger.LogInformation(
+                    "ACT session established successfully for {AppName} on {ActServer}",
+                    appName, actServer);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 proxy?.Abort();
-                _logger.LogError(ex.Message);
+                proxy = null;
                 throw;
             }
-
         }
 
         public async Task CloseProxy()
         {
-            if (proxy != null)
+            if (proxy is null)
+                return;
+
+            try
             {
-                try
+                if (proxy.State == CommunicationState.Opened)
                 {
-                    if (proxy.State == CommunicationState.Opened)
-                    {
-                        await proxy.ShutDownSessionAsync();
-                        await proxy.CloseAsync();
-                        _logger.LogInformation("Proxy closed successfully");
-                    }
-                    else
-                    {
-                        proxy.Abort();
-                        _logger.LogWarning("Proxy was in {State} state — aborted", proxy.State);
-                    }
+                    await WcfCallLogger.ExecuteAsync(
+                        () => proxy.ShutDownSessionAsync(),
+                        "ShutDownSession",
+                        _logger);
+
+                    await WcfCallLogger.ExecuteAsync(
+                        () => proxy.CloseAsync(),
+                        "CloseProxy",
+                        _logger);
+
+                    _logger.LogInformation("Proxy closed successfully");
                 }
-                catch (CommunicationException ex)
+                else
                 {
                     proxy.Abort();
-                    _logger.LogError($"Communication error while closing proxy: {ex.Message}");
-                }
-                catch (TimeoutException ex)
-                {
-                    proxy.Abort();
-                    _logger.LogError($"Timeout while closing proxy: {ex.Message}");
-                }
-                catch (Exception ex)
-                {
-                    proxy.Abort();
-                    _logger.LogError($"Error while closing proxy: {ex.Message}");
-                }
-                finally
-                {
-                    proxy = null;
+                    _logger.LogWarning(
+                        "Proxy was in {State} state — aborted", proxy.State);
                 }
             }
+            catch (CommunicationException ex)
+            {
+                proxy.Abort();
+                _logger.LogError(
+                    ex,
+                    "Communication error while closing proxy: {Message}",
+                    ex.Message);
+            }
+            catch (TimeoutException ex)
+            {
+                proxy.Abort();
+                _logger.LogError(
+                    ex,
+                    "Timeout while closing proxy: {Message}",
+                    ex.Message);
+            }
+            catch (Exception ex)
+            {
+                proxy.Abort();
+                _logger.LogError(
+                    ex,
+                    "Error while closing proxy: {Message}",
+                    ex.Message);
+            }
+            finally
+            {
+                proxy = null;
+            }
         }
+
         public async Task AllowAccess(int globalDoorNumber)
         {
+            if (proxy is null || proxy.State != CommunicationState.Opened)
+                throw new InvalidOperationException(
+                    "Proxy is not open. Cannot issue command.");
 
-            if (proxy == null || proxy.State != CommunicationState.Opened)
-                throw new InvalidOperationException("Proxy is not open. Cannot issue command.");
-
-            CommandExt command = new CommandExt();
-            command.Type = (uint)ACTCommandType.Door;
-            command.DoorCommandInstruction = (uint)DoorCommands.ActivateRelay;
+            CommandExt command = new CommandExt
+            {
+                Type = (uint)ACTCommandType.Door,
+                DoorCommandInstruction = (uint)DoorCommands.ActivateRelay
+            };
             //command.Controller = value.ControllerAddress;
             //command.Door = (byte)value.LocalDoorNumber;
 
-            bool result = await proxy.IssueCommandOnDoorsAsync(command, [globalDoorNumber]);
+            bool result = await WcfCallLogger.ExecuteAsync(
+                () => proxy.IssueCommandOnDoorsAsync(command, [globalDoorNumber]),
+                "IssueCommandOnDoors",
+                _logger);
+
             if (!result)
             {
-                _logger.LogInformation($"Failed to activate relay on door {globalDoorNumber}");
+                _logger.LogWarning(
+                    "Failed to activate relay on door {GlobalDoorNumber}",
+                    globalDoorNumber);
             }
         }
     }
