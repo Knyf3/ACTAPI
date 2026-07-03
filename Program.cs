@@ -93,16 +93,19 @@ namespace ACTApi
                 builder.Services.AddControllers();
                 builder.Services.AddEndpointsApiExplorer();
 
-                // ── CORS (allow LITEVM GitHub Pages frontend) ──────────────
-                builder.Services.AddCors(options =>
+                // ── CORS (from Settings.json: CorsOrigins) ─────────────────
+                if (!string.IsNullOrWhiteSpace(settings.corsOrigins))
                 {
-                    options.AddDefaultPolicy(policy =>
+                    builder.Services.AddCors(options =>
                     {
-                        policy.WithOrigins("https://knyf3.github.io")
-                              .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                              .WithHeaders("Content-Type");
+                        options.AddDefaultPolicy(policy =>
+                        {
+                            policy.WithOrigins(settings.corsOrigins.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                                  .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                                  .WithHeaders("Content-Type");
+                        });
                     });
-                });
+                }
 
                 // ── Swagger (from Settings.json: SwaggerEnabled) ────────
                 if (settings.swaggerEnabled)
