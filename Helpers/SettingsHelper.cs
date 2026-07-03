@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
 
-namespace ACTProAPI.Helpers
+namespace ACTApi.Helpers
 {
     public class SettingsHelper
     {

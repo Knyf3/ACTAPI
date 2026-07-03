@@ -1,8 +1,8 @@
 #define MyAppName "ACT Pro API Service"
 #define MyAppVersion "1.0.2"
 #define MyAppPublisher "Total Optima Solusi"
-#define MyAppExeName "ACTProAPI.exe"
-#define ServiceName "ACTProAPIService"
+#define MyAppExeName "ACTApi.exe"
+#define ServiceName "ACTApiService"
 
 [Setup]
 AppId={{044c6f3f-41a7-4c39-8a85-eeb642dc522d}
@@ -12,7 +12,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=Output
-OutputBaseFilename=ACTProAPIServiceSetup_{#MyAppVersion}
+OutputBaseFilename=ACTApiServiceSetup_{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=admin

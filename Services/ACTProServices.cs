@@ -1,8 +1,8 @@
-﻿using ACTProAPI.Helpers;
-using ACTServiceReference;
+﻿using ACTServiceReference;
+using ACTApi.Helpers;
 using System.ServiceModel;
 
-namespace ACTProAPI.Services
+namespace ACTApi.Services
 {
     public class ACTProServices : IACTProServices
     {

@@ -1,4 +1,4 @@
-namespace ACTProAPI
+namespace ACTApi
 {
     public class WeatherForecast
     {

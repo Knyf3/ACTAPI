@@ -1,7 +1,7 @@
-﻿using ACTProAPI.Services;
+﻿using ACTApi.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace ACTProAPI.Controllers
+namespace ACTApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]

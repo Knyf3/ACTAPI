@@ -1,8 +1,8 @@
-using ACTProAPI.Services;
+using ACTApi.Services;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
-namespace ACTProAPI
+namespace ACTApi
 {
     public class Program
     {

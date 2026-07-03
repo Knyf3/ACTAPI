@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 
-namespace ACTProAPI.Controllers
+namespace ACTApi.Controllers
 {
     [ApiController]
     [Route("[controller]")]

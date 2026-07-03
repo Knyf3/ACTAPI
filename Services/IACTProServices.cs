@@ -1,4 +1,4 @@
-﻿namespace ACTProAPI.Services
+﻿namespace ACTApi.Services
 {
     public interface IACTProServices
     {

@@ -1,6 +1,0 @@
-@ACTProAPI_HostAddress = http://localhost:5101
-
-GET {{ACTProAPI_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
