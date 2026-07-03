@@ -11,15 +11,8 @@ namespace ACTApi
     {
         public static void Main(string[] args)
         {
-            // Load settings early for log path resolution
-            var settings = new Helpers.SettingsHelper();
-
-            // ── Serilog Bootstrap ────────────────────────────────────────
+            // ── Bootstrap Logger (catches startup errors) ──────────────
             Log.Logger = new LoggerConfiguration()
-                .ReadFrom.Configuration(new ConfigurationBuilder()
-                    .AddJsonFile(settings.sharedSettingsPath,
-                        optional: false, reloadOnChange: true)
-                    .Build())
                 .MinimumLevel.Information()
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
                 .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
@@ -32,25 +25,45 @@ namespace ACTApi
                 .WriteTo.File(
                     Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs", "actapi-.log"),
                     rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 30,       // Keep 30 days of logs
+                    retainedFileCountLimit: 30,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {MachineName} [{ThreadId}] {Message:lj}{NewLine}{Exception}")
                 .CreateBootstrapLogger();
 
             try
             {
+                // ── Load Runtime Settings ──────────────────────────────
+                var settings = new Helpers.SettingsHelper();
+
                 Log.Information("ACT API Bridge starting up...");
-                Log.Information("Settings loaded from: {SettingsPath}", settings.sharedSettingsPath);
                 Log.Information("ACT Server target: {ActServer}, App: {AppName}",
                     settings.actServer, settings.appName);
                 Log.Information("HTTP endpoint: {HttpUrl}", settings.serverAddress);
+                Log.Information("Runtime: {IsService}, BaseDir: {BaseDir}",
+                    OperatingSystem.IsWindows(), AppDomain.CurrentDomain.BaseDirectory);
 
                 var builder = WebApplication.CreateBuilder(args);
 
+                // Load appsettings.json if it exists (optional — defaults used otherwise)
+                var appSettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+                if (File.Exists(appSettingsPath))
+                {
+                    builder.Configuration.AddJsonFile(appSettingsPath, optional: true, reloadOnChange: true);
+                }
+
+                // Load ACT-specific settings
                 builder.Configuration.AddJsonFile(settings.sharedSettingsPath,
                     optional: false, reloadOnChange: true);
 
-                // ── Windows Service Hosting ──────────────────────────────
-                builder.Host.UseWindowsService();
+                // ── Windows Service Hosting (safe during dev; only activates when installed) ─
+                if (OperatingSystem.IsWindows())
+                {
+                    builder.Host.UseWindowsService();
+                }
+                else
+                {
+                    Log.Information("Not running on Windows — skipping Windows Service registration");
+                }
+
                 builder.WebHost.UseUrls(settings.serverAddress);
 
                 // ── Serilog for the application pipeline ─────────────────
@@ -124,13 +137,9 @@ namespace ACTApi
                 var app = builder.Build();
 
                 // ── Middleware Pipeline ──────────────────────────────────
-                // 1. Exception handling first — catches errors from everything below
                 app.UseMiddleware<ExceptionHandlingMiddleware>();
-
-                // 2. Request logging — captures method, path, status, duration
                 app.UseMiddleware<RequestLoggingMiddleware>();
 
-                // 3. Swagger (before routing)
                 if (swaggerEnabled)
                 {
                     app.UseSwagger();
@@ -141,7 +150,6 @@ namespace ACTApi
                     });
                 }
 
-                // 4. Routing
                 app.UseAuthorization();
                 app.MapControllers();
 
