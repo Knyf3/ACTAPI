@@ -22,7 +22,7 @@ public class GroupService : IGroupService
     public async Task<List<GroupDto>> GetDoorGroupsAsync(ActEnterprisePublicAPI_ExtClient proxy)
     {
         var groups = await WcfCallLogger.ExecuteAsync(
-            () => proxy.GetDoorGroupsAsync(0, 1000, false),
+            () => proxy.GetDoorGroupsAsync(0, 1000, true),
             "GetDoorGroups",
             _logger);
 

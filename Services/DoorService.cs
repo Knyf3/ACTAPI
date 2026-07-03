@@ -17,46 +17,57 @@ public class DoorService : IDoorService
     }
 
     /// <inheritdoc />
-    public async Task<PaginatedResponse<DoorDto>> GetDoorsAsync(ActEnterprisePublicAPI_ExtClient proxy, int page = 1, int pageSize = 200)
+    public async Task<PaginatedResponse<DoorDto>> GetDoorsAsync(
+        ActEnterprisePublicAPI_ExtClient proxy, int page = 1, int pageSize = 200)
     {
-        return await WcfPaginationHelper.GetPageAsync<DoorValueExt, DoorDto>(
-            (start, max) => proxy.GetDoorsAsync(0, max, false, true),
-            page,
-            pageSize,
-            d => d.ToDto());
+        // Fetch all doors using the cursor pattern from the ACT spec:
+        // loop with next=true, advancing by GlobalDoorNumber
+        var allDoors = await WcfPaginationHelper.GetAllAsync<DoorValueExt>(
+            (start, max) => proxy.GetDoorsAsync(start, max, true, true),
+            d => d.GlobalDoorNumber,
+            pageSize);
+
+        // Apply in-memory pagination
+        var totalCount = allDoors.Count;
+        var pagedItems = allDoors
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(d => d.ToDto())
+            .ToList();
+
+        return new PaginatedResponse<DoorDto>
+        {
+            Data = pagedItems,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize,
+            HasMore = (page * pageSize) < totalCount
+        };
     }
 
     /// <inheritdoc />
-    public async Task<DoorDto?> GetDoorAsync(ActEnterprisePublicAPI_ExtClient proxy, int globalDoorNumber)
+    public async Task<DoorDto?> GetDoorAsync(
+        ActEnterprisePublicAPI_ExtClient proxy, int globalDoorNumber)
     {
-        // GetDoorsAsync with systemIndex=0, max=1 to fetch the specific door
-        var doors = await WcfCallLogger.ExecuteAsync(
-            () => proxy.GetDoorsAsync(0, 1, false, true),
-            "GetDoors",
-            _logger);
+        // Fetch all doors using proper ACT pagination, find matching door
+        var allDoors = await WcfPaginationHelper.GetAllAsync<DoorValueExt>(
+            (start, max) => proxy.GetDoorsAsync(start, max, true, true),
+            d => d.GlobalDoorNumber,
+            200);
 
-        if (doors == null || doors.Length == 0)
-            return null;
-
-        // Find the specific door
-        foreach (var door in doors)
+        var match = allDoors.FirstOrDefault(d => d.GlobalDoorNumber == globalDoorNumber);
+        if (match == null)
         {
-            if (door.GlobalDoorNumber == globalDoorNumber)
-                return door.ToDto();
+            _logger.LogWarning("Door {GlobalDoorNumber} not found", globalDoorNumber);
+            return null;
         }
 
-        // If not found in first page, try with more
-        var allDoors = await WcfCallLogger.ExecuteAsync(
-            () => proxy.GetDoorsAsync(0, 1000, false, true),
-            "GetDoors",
-            _logger);
-
-        var match = allDoors?.FirstOrDefault(d => d.GlobalDoorNumber == globalDoorNumber);
-        return match?.ToDto();
+        return match.ToDto();
     }
 
     /// <inheritdoc />
-    public async Task<bool> IssueDoorCommandAsync(ActEnterprisePublicAPI_ExtClient proxy, int globalDoorNumber, byte command)
+    public async Task<bool> IssueDoorCommandAsync(
+        ActEnterprisePublicAPI_ExtClient proxy, int globalDoorNumber, byte command)
     {
         var cmd = command.ToCommandExt();
         var result = await WcfCallLogger.ExecuteAsync(
@@ -72,7 +83,8 @@ public class DoorService : IDoorService
     }
 
     /// <inheritdoc />
-    public async Task<bool> IssueDoorCommandBatchAsync(ActEnterprisePublicAPI_ExtClient proxy, int[] globalDoorNumbers, byte command)
+    public async Task<bool> IssueDoorCommandBatchAsync(
+        ActEnterprisePublicAPI_ExtClient proxy, int[] globalDoorNumbers, byte command)
     {
         if (globalDoorNumbers == null || globalDoorNumbers.Length == 0)
             throw new ArgumentException("At least one door number is required.", nameof(globalDoorNumbers));
