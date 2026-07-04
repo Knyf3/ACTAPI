@@ -48,9 +48,11 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-; Create and start the Windows Service
-Filename: "{sys}\sc.exe"; Parameters: "create {#MyServiceName} binPath=""{app}\{#MyAppExeName}"" start=auto displayName=""{#MyAppName}"""; Flags: runhidden; StatusMsg: "Installing Windows Service..."; Check: not ServiceExists('{#MyServiceName}')
-Filename: "{sys}\sc.exe"; Parameters: "description {#MyServiceName} ""RESTful HTTP bridge for ACT Enterprise access control WCF API"""; Flags: runhidden
+; Stop existing service if running, then remove and recreate
+Filename: "{sys}\net.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden; StatusMsg: "Stopping existing service..."; Check: ServiceExists('{#MyServiceName}')
+Filename: "{sys}\sc.exe"; Parameters: "delete {#MyServiceName}"; Flags: runhidden; Check: ServiceExists('{#MyServiceName}')
+Filename: "{sys}\sc.exe"; Parameters: "create {#MyServiceName} binPath=""{app}\{#MyAppExeName}"" start=auto displayName=""{#MyAppName}"""; Flags: runhidden; StatusMsg: "Installing Windows Service..."
+Filename: "{sys}\sc.exe"; Parameters: "description {#MyServiceName} ""RESTful HTTP bridge for ACT Enterprise WCF API"""; Flags: runhidden
 Filename: "{sys}\net.exe"; Parameters: "start {#MyServiceName}"; Flags: runhidden; StatusMsg: "Starting service..."
 
 [UninstallRun]
@@ -63,10 +65,10 @@ var
   ServiceManager, ServiceHandle: Integer;
 begin
   Result := False;
-  ServiceManager := OpenSCManager('', '', 4); // SC_MANAGER_CONNECT
+  ServiceManager := OpenSCManager('', '', 4);
   if ServiceManager <> 0 then
   begin
-    ServiceHandle := OpenService(ServiceManager, ServiceName, 4); // SERVICE_QUERY_STATUS
+    ServiceHandle := OpenService(ServiceManager, ServiceName, 4);
     if ServiceHandle <> 0 then
     begin
       Result := True;
