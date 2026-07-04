@@ -27,9 +27,6 @@ WizardStyle=modern
 PrivilegesRequired=admin
 DisableProgramGroupPage=yes
 
-[Languages]
-Name: "english"
-
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
