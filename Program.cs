@@ -1,6 +1,7 @@
 using ACTApi.Middleware;
 using ACTApi.Services;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
@@ -149,6 +150,49 @@ namespace ACTApi
                         options.SwaggerEndpoint("/swagger/v1/swagger.json", "ACT API Bridge v1");
                         options.RoutePrefix = "swagger";
                     });
+                }
+
+                // ── Static Files (LITEVM Verify Page) ─────────────────────────────
+                if (settings.verifyPageEnabled)
+                {
+                    var verifyBasePath = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "verify");
+
+                    if (Directory.Exists(verifyBasePath))
+                    {
+                        var verifyFileProvider = new PhysicalFileProvider(verifyBasePath);
+
+                        // Default files → /verify/ serves index.html
+                        app.UseDefaultFiles(new DefaultFilesOptions
+                        {
+                            FileProvider = verifyFileProvider,
+                            RequestPath = "/verify",
+                            DefaultFileNames = new[] { "index.html" }
+                        });
+
+                        // Serve static files under /verify/ path
+                        app.UseStaticFiles(new StaticFileOptions
+                        {
+                            FileProvider = verifyFileProvider,
+                            RequestPath = "/verify",
+                            OnPrepareResponse = ctx =>
+                            {
+                                ctx.Context.Response.Headers.Append(
+                                    "Cache-Control", "public, max-age=3600");
+                                ctx.Context.Response.Headers.Append(
+                                    "X-Frame-Options", "SAMEORIGIN");
+                            }
+                        });
+
+                        Log.Information(
+                            "Verify page enabled — serving from {Path} at {Url}/verify/",
+                            verifyBasePath, settings.serverAddress);
+                    }
+                    else
+                    {
+                        Log.Warning(
+                            "Verify page is enabled but directory not found: {Path}",
+                            verifyBasePath);
+                    }
                 }
 
                 app.UseCors();

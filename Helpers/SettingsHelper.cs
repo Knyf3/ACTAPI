@@ -23,6 +23,7 @@ namespace ACTApi.Helpers
         // ── Feature Flags ───────────────────────────────────────────────
         public bool swaggerEnabled { get; set; } = true;
         public string corsOrigins { get; set; } = "https://knyf3.github.io";
+        public bool verifyPageEnabled { get; set; } = false;
 
         // ── Logging ─────────────────────────────────────────────────────
         public string logLevelDefault { get; set; } = "Information";
@@ -67,6 +68,7 @@ namespace ACTApi.Helpers
                 appName = SettingsConfig["AppName"]?.ToString() ?? appName;
                 swaggerEnabled = SettingsConfig["SwaggerEnabled"]?.Value<bool>() ?? swaggerEnabled;
                 corsOrigins = SettingsConfig["CorsOrigins"]?.ToString() ?? corsOrigins;
+                verifyPageEnabled = SettingsConfig["VerifyPageEnabled"]?.Value<bool>() ?? verifyPageEnabled;
 
                 // Read Logging levels from the nested Logging:LogLevel section
                 var logLevel = SettingsConfig["Logging"]?["LogLevel"];

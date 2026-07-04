@@ -6,7 +6,8 @@
   "ACTPassword": "passwordsucks",
   "AppName": "RVMS_ACT_Plugin",
   "SwaggerEnabled": true,
-  "CorsOrigins": "https://knyf3.github.io",
+  "CorsOrigins": "",
+  "VerifyPageEnabled": true,
   "Logging": {
     "LogLevel": {
       "Default": "Information",
