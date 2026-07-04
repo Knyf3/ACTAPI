@@ -29,7 +29,7 @@ WizardStyle=modern
 DisableProgramGroupPage=yes
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Languages\Default.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
