@@ -6,6 +6,7 @@
 #define MyAppPublisher "Entech Security"
 #define MyAppURL "https://github.com/Knyf3/ACTAPI"
 #define MyAppExeName "ACTApi.exe"
+#define MyServiceName "ACTApi"
 
 [Setup]
 AppId={{B4F1A2D3-5E6F-7A8B-9C0D-1E2F3A4B5C6D}
@@ -27,7 +28,7 @@ PrivilegesRequired=admin
 DisableProgramGroupPage=yes
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.iso"
+Name: "english"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -36,7 +37,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; Main application
 Source: "bin\Release\net8.0\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; Settings file (optional: copy default if not exists)
+; Settings file (keep existing on upgrade)
 Source: "Settings\Settings.json"; DestDir: "{app}\Settings"; Flags: onlyifdoesntexist uninsneveruninstall
 
 ; Verify page files
@@ -47,16 +48,39 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-; Install and start the Windows Service
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--install"; Flags: runhidden; StatusMsg: "Installing Windows Service..."
-Filename: "net"; Parameters: "start ACTApi"; Flags: runhidden; StatusMsg: "Starting ACT API Bridge service..."; AfterInstall: Sleep(2000)
+; Create and start the Windows Service
+Filename: "{sys}\sc.exe"; Parameters: "create {#MyServiceName} binPath=""{app}\{#MyAppExeName}"" start=auto displayName=""{#MyAppName}"""; Flags: runhidden; StatusMsg: "Installing Windows Service..."; Check: not ServiceExists('{#MyServiceName}')
+Filename: "{sys}\sc.exe"; Parameters: "description {#MyServiceName} ""RESTful HTTP bridge for ACT Enterprise access control WCF API"""; Flags: runhidden
+Filename: "{sys}\net.exe"; Parameters: "start {#MyServiceName}"; Flags: runhidden; StatusMsg: "Starting service..."
 
 [UninstallRun]
-Filename: "net"; Parameters: "stop ACTApi"; Flags: runhidden
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--uninstall"; Flags: runhidden
+Filename: "{sys}\net.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden
+Filename: "{sys}\sc.exe"; Parameters: "delete {#MyServiceName}"; Flags: runhidden
 
 [Code]
-function Sleep(ms: Integer): Boolean;
+function ServiceExists(ServiceName: string): Boolean;
+var
+  ServiceManager, ServiceHandle: Integer;
 begin
-  Result := True;
+  Result := False;
+  ServiceManager := OpenSCManager('', '', 4); // SC_MANAGER_CONNECT
+  if ServiceManager <> 0 then
+  begin
+    ServiceHandle := OpenService(ServiceManager, ServiceName, 4); // SERVICE_QUERY_STATUS
+    if ServiceHandle <> 0 then
+    begin
+      Result := True;
+      CloseServiceHandle(ServiceHandle);
+    end;
+    CloseServiceHandle(ServiceManager);
+  end;
 end;
+
+function OpenSCManager(MachineName, DatabaseName: string; DesiredAccess: Integer): Integer;
+  external 'OpenSCManagerW@advapi32.dll stdcall';
+
+function OpenService(hSCManager: Integer; ServiceName: string; DesiredAccess: Integer): Integer;
+  external 'OpenServiceW@advapi32.dll stdcall';
+
+function CloseServiceHandle(hSCObject: Integer): Boolean;
+  external 'CloseServiceHandle@advapi32.dll stdcall';
