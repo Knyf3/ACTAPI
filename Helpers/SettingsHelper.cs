@@ -24,6 +24,7 @@ namespace ACTApi.Helpers
         public bool swaggerEnabled { get; set; } = true;
         public string corsOrigins { get; set; } = "https://knyf3.github.io";
         public bool verifyPageEnabled { get; set; } = false;
+        public bool googleDrivePhotoProxyEnabled { get; set; } = true;
 
         // ── Logging ─────────────────────────────────────────────────────
         public string logLevelDefault { get; set; } = "Information";
@@ -69,6 +70,7 @@ namespace ACTApi.Helpers
                 swaggerEnabled = SettingsConfig["SwaggerEnabled"]?.Value<bool>() ?? swaggerEnabled;
                 corsOrigins = SettingsConfig["CorsOrigins"]?.ToString() ?? corsOrigins;
                 verifyPageEnabled = SettingsConfig["VerifyPageEnabled"]?.Value<bool>() ?? verifyPageEnabled;
+                googleDrivePhotoProxyEnabled = SettingsConfig["GoogleDrivePhotoProxyEnabled"]?.Value<bool>() ?? googleDrivePhotoProxyEnabled;
 
                 // Read Logging levels from the nested Logging:LogLevel section
                 var logLevel = SettingsConfig["Logging"]?["LogLevel"];

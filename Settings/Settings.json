@@ -8,6 +8,7 @@
   "SwaggerEnabled": true,
   "CorsOrigins": "",
   "VerifyPageEnabled": true,
+  "GoogleDrivePhotoProxyEnabled": true,
   "Logging": {
     "LogLevel": {
       "Default": "Information",
