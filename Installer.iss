@@ -50,21 +50,21 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 ; Stop existing service if running (skip during fresh install)
-Filename: "{sys64}\sc.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden; StatusMsg: "Stopping ACT API Service..."; Check: ServiceExists('{#MyServiceName}')
+Filename: "{sys}\sc.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden; StatusMsg: "Stopping ACT API Service..."; Check: ServiceExists('{#MyServiceName}')
 
 ; Wait for file locks to release
 Filename: "{sys}\timeout.exe"; Parameters: "/t 3 /nobreak"; Flags: runhidden; Check: ServiceExists('{#MyServiceName}')
 
 ; Create service only on fresh install (not upgrade)
-Filename: "{sys64}\sc.exe"; Parameters: "create {#MyServiceName} binPath=""{app}\{#MyAppExeName}"" start=auto displayName=""{#MyAppName}"""; Flags: runhidden; StatusMsg: "Registering Windows Service..."; Check: not ServiceExists('{#MyServiceName}')
-Filename: "{sys64}\sc.exe"; Parameters: "description {#MyServiceName} ""RESTful HTTP bridge for ACT Enterprise WCF API"""; Flags: runhidden; Check: not ServiceExists('{#MyServiceName}')
+Filename: "{sys}\sc.exe"; Parameters: "create {#MyServiceName} binPath=""{app}\{#MyAppExeName}"" start=auto displayName=""{#MyAppName}"""; Flags: runhidden; StatusMsg: "Registering Windows Service..."; Check: not ServiceExists('{#MyServiceName}')
+Filename: "{sys}\sc.exe"; Parameters: "description {#MyServiceName} ""RESTful HTTP bridge for ACT Enterprise WCF API"""; Flags: runhidden; Check: not ServiceExists('{#MyServiceName}')
 
 ; Always start the service after install/upgrade
-Filename: "{sys64}\sc.exe"; Parameters: "start {#MyServiceName}"; Flags: runhidden; StatusMsg: "Starting ACT API Service..."
+Filename: "{sys}\sc.exe"; Parameters: "start {#MyServiceName}"; Flags: runhidden; StatusMsg: "Starting ACT API Service..."
 
 [UninstallRun]
-Filename: "{sys64}\sc.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden
-Filename: "{sys64}\sc.exe"; Parameters: "delete {#MyServiceName}"; Flags: runhidden
+Filename: "{sys}\sc.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden
+Filename: "{sys}\sc.exe"; Parameters: "delete {#MyServiceName}"; Flags: runhidden
 
 [Code]
 // External API declarations MUST be at the top of [Code]
