@@ -29,12 +29,11 @@ OutputBaseFilename=ACTAPI_Setup_{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=admin
+WizardStyle=modern
 DisableProgramGroupPage=yes
-; NOTE: WizardStyle=modern removed — not supported in InnoSetup 5.x
 
 [Languages]
-; Required by InnoSetup 5.x; harmless in 6.x
-Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "english"; MessagesFile: "compiler:Languages\Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
