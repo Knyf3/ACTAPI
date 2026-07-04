@@ -1,10 +1,5 @@
-; ACTApi — Inno Setup installer script
-; Compatible with InnoSetup 5.x (Unicode) and 6.x
+; ACTApi — Inno Setup 6 installer script
 ; Generates a single-file installer for the ACTApi Windows Service
-;
-; Build steps:
-;   1. dotnet publish -c Release -o bin\Release\net8.0\publish
-;   2. Compile this script with ISCC.exe
 
 #define MyAppName "ACT API Bridge"
 #define MyAppVersion "1.0.0"
@@ -26,9 +21,10 @@ DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=.\Installer
 OutputBaseFilename=ACTAPI_Setup_{#MyAppVersion}
-Compression=lzma
+Compression=lzma2/ultra64
 SolidCompression=yes
 PrivilegesRequired=admin
+ArchitecturesInstallIn64BitMode=x64
 WizardStyle=modern
 DisableProgramGroupPage=yes
 
@@ -39,13 +35,13 @@ Name: "english"; MessagesFile: "compiler:Languages\Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; Main application (published .NET 8 output)
-Source: "bin\Release\net8.0\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Main binaries — excludes Settings.json so the explicit rule below takes precedence
+Source: "bin\Release\net8.0\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "Settings.json,Settings\Settings.json"
 
-; Settings file — preserve existing on upgrade, never remove during uninstall
+; Settings file — preserved on upgrade, kept during uninstall
 Source: "Settings\Settings.json"; DestDir: "{app}\Settings"; Flags: onlyifdoesntexist uninsneveruninstall
 
-; Verify / guard page static assets
+; Verify page static assets
 Source: "wwwroot\verify\*"; DestDir: "{app}\wwwroot\verify"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
@@ -53,23 +49,37 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-; Stop + remove existing service (skip if not installed)
-Filename: "{sys}\net.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden; StatusMsg: "Stopping existing service..."; Check: ServiceExists('{#MyServiceName}')
-Filename: "{sys}\sc.exe"; Parameters: "delete {#MyServiceName}"; Flags: runhidden; Check: ServiceExists('{#MyServiceName}')
+; Stop existing service if running (skip during fresh install)
+Filename: "{sys64}\sc.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden; StatusMsg: "Stopping ACT API Service..."; Check: ServiceExists('{#MyServiceName}')
 
-; Install service (sc.exe create + description + start)
-Filename: "{sys}\sc.exe"; Parameters: "create {#MyServiceName} binPath=""{app}\{#MyAppExeName}"" start=auto displayName=""{#MyAppName}"""; Flags: runhidden; StatusMsg: "Installing Windows Service..."
-Filename: "{sys}\sc.exe"; Parameters: "description {#MyServiceName} ""RESTful HTTP bridge for ACT Enterprise WCF API"""; Flags: runhidden
-Filename: "{sys}\net.exe"; Parameters: "start {#MyServiceName}"; Flags: runhidden; StatusMsg: "Starting service..."
+; Wait for file locks to release
+Filename: "{sys}\timeout.exe"; Parameters: "/t 3 /nobreak"; Flags: runhidden; Check: ServiceExists('{#MyServiceName}')
+
+; Create service only on fresh install (not upgrade)
+Filename: "{sys64}\sc.exe"; Parameters: "create {#MyServiceName} binPath=""{app}\{#MyAppExeName}"" start=auto displayName=""{#MyAppName}"""; Flags: runhidden; StatusMsg: "Registering Windows Service..."; Check: not ServiceExists('{#MyServiceName}')
+Filename: "{sys64}\sc.exe"; Parameters: "description {#MyServiceName} ""RESTful HTTP bridge for ACT Enterprise WCF API"""; Flags: runhidden; Check: not ServiceExists('{#MyServiceName}')
+
+; Always start the service after install/upgrade
+Filename: "{sys64}\sc.exe"; Parameters: "start {#MyServiceName}"; Flags: runhidden; StatusMsg: "Starting ACT API Service..."
 
 [UninstallRun]
-Filename: "{sys}\net.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden
-Filename: "{sys}\sc.exe"; Parameters: "delete {#MyServiceName}"; Flags: runhidden
+Filename: "{sys64}\sc.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden
+Filename: "{sys64}\sc.exe"; Parameters: "delete {#MyServiceName}"; Flags: runhidden
 
 [Code]
+// External API declarations MUST be at the top of [Code]
+function OpenSCManager(MachineName, DatabaseName: string; DesiredAccess: LongWord): THandle;
+  external 'OpenSCManagerW@advapi32.dll stdcall';
+
+function OpenService(hSCManager: THandle; ServiceName: string; DesiredAccess: LongWord): THandle;
+  external 'OpenServiceW@advapi32.dll stdcall';
+
+function CloseServiceHandle(hSCObject: THandle): Boolean;
+  external 'CloseServiceHandle@advapi32.dll stdcall';
+
 function ServiceExists(ServiceName: string): Boolean;
 var
-  ServiceManager, ServiceHandle: Integer;
+  ServiceManager, ServiceHandle: THandle;
 begin
   Result := False;
   ServiceManager := OpenSCManager('', '', 4);
@@ -84,12 +94,3 @@ begin
     CloseServiceHandle(ServiceManager);
   end;
 end;
-
-function OpenSCManager(MachineName, DatabaseName: string; DesiredAccess: Integer): Integer;
-  external 'OpenSCManagerW@advapi32.dll stdcall';
-
-function OpenService(hSCManager: Integer; ServiceName: string; DesiredAccess: Integer): Integer;
-  external 'OpenServiceW@advapi32.dll stdcall';
-
-function CloseServiceHandle(hSCObject: Integer): Boolean;
-  external 'CloseServiceHandle@advapi32.dll stdcall';
