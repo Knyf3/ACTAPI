@@ -1,5 +1,10 @@
 ; ACTApi — Inno Setup installer script
+; Compatible with InnoSetup 5.x (Unicode) and 6.x
 ; Generates a single-file installer for the ACTApi Windows Service
+;
+; Build steps:
+;   1. dotnet publish -c Release -o bin\Release\net8.0\publish
+;   2. Compile this script with ISCC.exe
 
 #define MyAppName "ACT API Bridge"
 #define MyAppVersion "1.0.0"
@@ -23,21 +28,25 @@ OutputDir=.\Installer
 OutputBaseFilename=ACTAPI_Setup_{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
-WizardStyle=modern
 PrivilegesRequired=admin
 DisableProgramGroupPage=yes
+; NOTE: WizardStyle=modern removed — not supported in InnoSetup 5.x
+
+[Languages]
+; Required by InnoSetup 5.x; harmless in 6.x
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; Main application
+; Main application (published .NET 8 output)
 Source: "bin\Release\net8.0\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; Settings file (keep existing on upgrade)
+; Settings file — preserve existing on upgrade, never remove during uninstall
 Source: "Settings\Settings.json"; DestDir: "{app}\Settings"; Flags: onlyifdoesntexist uninsneveruninstall
 
-; Verify page files
+; Verify / guard page static assets
 Source: "wwwroot\verify\*"; DestDir: "{app}\wwwroot\verify"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
@@ -45,9 +54,11 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-; Stop existing service if running, then remove and recreate
+; Stop + remove existing service (skip if not installed)
 Filename: "{sys}\net.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden; StatusMsg: "Stopping existing service..."; Check: ServiceExists('{#MyServiceName}')
 Filename: "{sys}\sc.exe"; Parameters: "delete {#MyServiceName}"; Flags: runhidden; Check: ServiceExists('{#MyServiceName}')
+
+; Install service (sc.exe create + description + start)
 Filename: "{sys}\sc.exe"; Parameters: "create {#MyServiceName} binPath=""{app}\{#MyAppExeName}"" start=auto displayName=""{#MyAppName}"""; Flags: runhidden; StatusMsg: "Installing Windows Service..."
 Filename: "{sys}\sc.exe"; Parameters: "description {#MyServiceName} ""RESTful HTTP bridge for ACT Enterprise WCF API"""; Flags: runhidden
 Filename: "{sys}\net.exe"; Parameters: "start {#MyServiceName}"; Flags: runhidden; StatusMsg: "Starting service..."
