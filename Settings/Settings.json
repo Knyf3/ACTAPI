@@ -1,9 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/Knyf3/ACTAPI/main/Settings/Settings.schema.json",
   "Server": "http://localhost:8021",
-  "ACTServer": "192.168.2.217:8004",
+  "ACTServer": "192.168.1.100:8004",
   "ACTUsername": "fenky",
-  "ACTPassword": "passwordsucks",
+  "ACTPassword": "P@$$wordSucks11",
   "AppName": "RVMS_ACT_Plugin",
   "SwaggerEnabled": true,
   "CorsOrigins": "",
